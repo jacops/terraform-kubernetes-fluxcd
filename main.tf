@@ -34,7 +34,8 @@ resource "local_file" "kubeconfig" {
 provider "kubernetes" {
   version = "~> 1.10"
 
-  config_path = local_file.kubeconfig.filename
+  load_config_file = local_file.kubeconfig.filename == "" ? false : true
+  config_path      = local_file.kubeconfig.filename
 }
 
 resource "tls_private_key" "fluxcd" {
