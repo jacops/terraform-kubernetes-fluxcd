@@ -2,28 +2,25 @@
 
 set -eo pipefail
 
+VALUES_DIRECTORY=/tmp
+FLUX_YAML_VALUES_FILE="${VALUES_DIRECTORY}/flux-values.yaml"
+HELM_OPERATOR_YAML_VALUES_FILE="${VALUES_DIRECTORY}/helm-operator-values.yaml"
+
+echo "${FLUX_YAML_VALUES}" > "${FLUX_YAML_VALUES_FILE}"
+echo "${HELM_OPERATOR_YAML_VALUES}" > "${HELM_OPERATOR_YAML_VALUES_FILE}"
+
 helm repo add fluxcd https://charts.fluxcd.io
 
-helm upgrade -i flux fluxcd/flux --wait \
+helm upgrade -i flux fluxcd/flux \
+  --wait \
   --namespace fluxcd \
-  --set registry.pollInterval=1m \
-  --set git.pollInterval=1m \
-  --set git.secretName="${GIT_SECRET_NAME:-}" \
-  --set git.url="${GIT_URL}"
+  --version "${FLUX_CHART_VERSION}" \
+  --values "${FLUX_YAML_VALUES_FILE}" \
 
-kubectl apply -f https://raw.githubusercontent.com/fluxcd/helm-operator/helm-v3-dev/deploy/flux-helm-release-crd.yaml
-
-helm upgrade -i helm-operator fluxcd/helm-operator --wait \
+helm upgrade -i helm-operator fluxcd/helm-operator \
+  --wait \
   --namespace fluxcd \
-  --set git.ssh.secretName="${GIT_SECRET_NAME:-}" \
-  --set git.pollInterval=1m \
-  --set chartsSyncInterval=1m \
-  --set configureRepositories.enable=true \
-  --set configureRepositories.repositories[0].name=stable \
-  --set configureRepositories.repositories[0].url=https://kubernetes-charts.storage.googleapis.com \
-  --set configureRepositories.repositories[1].name=stable \
-  --set configureRepositories.repositories[1].url=https://kubernetes-charts.storage.googleapis.com \
-  --set extraEnvs[0].name=HELM_VERSION \
-  --set extraEnvs[0].value=v3 \
-  --set image.repository=docker.io/fluxcd/helm-operator-prerelease \
-  --set image.tag=helm-v3-dev-f2ad4dfc
+  --version "${HELM_OPERATOR_CHART_VERSION}" \
+  --values "${HELM_OPERATOR_YAML_VALUES_FILE}"
+
+rm -f "${FLUX_YAML_VALUES_FILE}" "${HELM_OPERATOR_YAML_VALUES_FILE}"

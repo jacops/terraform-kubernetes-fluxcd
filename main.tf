@@ -1,46 +1,19 @@
-provider "random" {
-  version = "~> 2.2"
-}
+terraform {
+  required_version = ">= 0.12.2"
 
-provider "tls" {
-  version = "~> 2.1"
-}
-
-provider "local" {
-  version = "~> 1.4"
-}
-
-#######################################################################
-######################## SETUP KUBECONFIG FILE ########################
-#######################################################################
-
-resource "random_id" "kubernetes_config" {
-  byte_length = 8
-
-  keepers = {
-    config = var.kube_config_raw
+  required_providers {
+    kubernetes = "~> 1.10"
+    local      = ">= 1.4"
+    tls        = ">= 2.1"
+    random     = ">= 2.2"
   }
-}
-
-resource "local_file" "kubeconfig" {
-  filename          = "/tmp/kubeconfig-${random_id.kubernetes_config.hex}"
-  sensitive_content = var.kube_config_raw
-  file_permission   = "0600"
-}
-
-#######################################################################
-#######################################################################
-
-provider "kubernetes" {
-  version = "~> 1.10"
-
-  load_config_file = local_file.kubeconfig.filename == "" ? false : true
-  config_path      = local_file.kubeconfig.filename
 }
 
 resource "tls_private_key" "fluxcd" {
   algorithm = "RSA"
   rsa_bits  = 4096
+
+  count = var.generate_ssh_key && var.ssh_private_key == "" ? 1 : 0
 }
 
 resource "kubernetes_namespace" "fluxcd" {
@@ -56,16 +29,25 @@ resource "kubernetes_secret" "flux_ssh" {
   }
 
   data = {
-    identity = tls_private_key.fluxcd.private_key_pem
+    identity = var.ssh_private_key != "" ? var.ssh_private_key : concat(tls_private_key.fluxcd.*.private_key_pem, [""])[0]
   }
 
   lifecycle {
     ignore_changes = [ metadata[0].annotations ]
   }
+
+  count = var.generate_ssh_key || var.ssh_private_key != "" ? 1 : 0
 }
 
 locals {
-  flux_install_script = "${path.module}/scripts/flux-install.sh"
+  flux_install_script      = "${path.module}/scripts/flux-install.sh"
+  flux_install_environment = {
+    KUBECONFIG                  = var.kubeconfig_filename
+    FLUX_CHART_VERSION          = var.flux_chart_version
+    FLUX_YAML_VALUES            = yamlencode(local.flux_values)
+    HELM_OPERATOR_CHART_VERSION = var.helm_operator_chart_version
+    HELM_OPERATOR_YAML_VALUES   = yamlencode(local.helm_operator_values)
+  }
 }
 
 resource "null_resource" "flux_install" {
@@ -73,16 +55,8 @@ resource "null_resource" "flux_install" {
   provisioner "local-exec" {
     on_failure  = fail
     command     = local.flux_install_script
-    environment = {
-      KUBECONFIG      = local_file.kubeconfig.filename
-      GIT_SECRET_NAME = kubernetes_secret.flux_ssh.metadata.0.name
-      GIT_URL         = var.git_url
-    }
+    environment = local.flux_install_environment
   }
 
-  triggers = {
-    flux_install_command = local.flux_install_script
-    flux_script          = md5(file(local.flux_install_script))
-    kube_config          = local_file.kubeconfig.filename
-  }
+  triggers = local.flux_install_environment
 }
