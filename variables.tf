@@ -16,13 +16,11 @@ variable "helm_operator_chart_version" {
 }
 
 variable "flux_values" {
-  type        = object({})
   description = "Helm values for flux release"
   default     = {}
 }
 
 variable "helm_operator_values" {
-  type        = object({})
   description = "Helm values for helm operator release"
   default     = {}
 }

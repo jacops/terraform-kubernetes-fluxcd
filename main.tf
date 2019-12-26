@@ -42,11 +42,13 @@ resource "kubernetes_secret" "flux_ssh" {
 locals {
   flux_install_script      = "${path.module}/scripts/flux-install.sh"
   flux_install_environment = {
-    KUBECONFIG                  = var.kubeconfig_filename
-    FLUX_CHART_VERSION          = var.flux_chart_version
-    FLUX_YAML_VALUES            = yamlencode(local.flux_values)
-    HELM_OPERATOR_CHART_VERSION = var.helm_operator_chart_version
-    HELM_OPERATOR_YAML_VALUES   = yamlencode(local.helm_operator_values)
+    KUBECONFIG                        = var.kubeconfig_filename
+    FLUX_CHART_VERSION                = var.flux_chart_version
+    FLUX_YAML_VALUES                  = yamlencode(local.flux_values)
+    FLUX_YAML_CUSTOM_VALUES           = yamlencode(var.flux_values)
+    HELM_OPERATOR_CHART_VERSION       = var.helm_operator_chart_version
+    HELM_OPERATOR_YAML_VALUES         = yamlencode(local.helm_operator_values)
+    HELM_OPERATOR_YAML_CUSTOM_VALUES  = yamlencode(var.helm_operator_values)
   }
 }
 
