@@ -3,6 +3,12 @@ variable "kubeconfig_filename" {
   description = "Path to kubeconfig"
 }
 
+variable "namespace" {
+  type        = string
+  description = "Name of the namespace where releases will be deployed. If emptu, the module will attempt to create the namespace"
+  default     = ""
+}
+
 variable "flux_chart_version" {
   type        = string
   description = "Flux chart version"
